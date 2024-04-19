@@ -6,9 +6,9 @@ use rand::Rng;
 
 use crate::{
     bullet::GameLayer,
-    character::{MovementAcceleration, MovementBundle, PlayerPosition},
+    character::{MovementAcceleration, MovementBundle, PlayerPosition, Pushed},
     hurtbox::{Dead, Hurt, HurtboxBundle},
-    Enemy,
+    Enemy, Player,
 };
 
 pub struct EnemyPlugin;
@@ -22,6 +22,7 @@ impl Plugin for EnemyPlugin {
                 enemy_on_dead_system,
                 spawn_enemies,
                 update_spawner_timer,
+                push_player_on_contact,
                 move_enemies_system,
             )
                 .chain(),
@@ -79,7 +80,7 @@ fn spawn_enemies(
     mut commands: Commands,
 ) {
     if spawner.timer.tick(time.delta()).finished() {
-        let new_spawn_pos = EnemySpawner::get_new_spawn_location(player_pos.0, 200.);
+        let new_spawn_pos = EnemySpawner::get_new_spawn_location(player_pos.0, 400.);
         commands.spawn((
             EnemyBundle::new(Collider::circle(16.)),
             EnemyBundle::sprite_bundle(Transform::from_xyz(new_spawn_pos.x, new_spawn_pos.y, 0.)),
@@ -146,6 +147,26 @@ fn enemy_on_dead_system(q_dead: Query<Entity, (With<Dead>, With<Enemy>)>, mut co
     q_dead.iter().for_each(|entity| {
         commands.entity(entity).despawn_recursive();
     });
+}
+
+fn push_player_on_contact(
+    q_player: Query<Entity, With<Player>>,
+    q_enemy_collisions: Query<(&CollidingEntities, &Transform), With<Enemy>>,
+    player_pos: Res<PlayerPosition>,
+    mut commands: Commands,
+) {
+    if let Ok(player_entity) = q_player.get_single() {
+        q_enemy_collisions
+            .iter()
+            .for_each(|(colliding_entities, enemy_tr)| {
+                if colliding_entities.0.contains(&player_entity) {
+                    let push_dir = player_pos.0 - enemy_tr.translation.truncate();
+                    commands
+                        .entity(player_entity)
+                        .insert(Pushed::new(push_dir, 5.));
+                }
+            })
+    }
 }
 
 fn move_enemies_system(
