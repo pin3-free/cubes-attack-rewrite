@@ -247,7 +247,6 @@ fn apply_damage_system(
         .iter()
         .for_each(|(entity, damage, colliding_entities)| {
             if !colliding_entities.0.is_empty() {
-                dbg!(entity, colliding_entities);
                 colliding_entities.0.iter().for_each(|target| {
                     commands.entity(*target).insert(DamageTaken(damage.0));
                 });

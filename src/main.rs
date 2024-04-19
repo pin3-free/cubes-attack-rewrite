@@ -27,18 +27,7 @@ fn setup(mut commands: Commands) {
         Player,
         HurtboxBundle::new(15.),
         CollisionLayers::new(GameLayer::Player, [GameLayer::Enemy]),
-    ));
-    commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::BLUE,
-                custom_size: Some(Vec2::splat(32.)),
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(100., 0., 0.),
-            ..default()
-        },
-        EnemyBundle::new(Collider::circle(16.)),
+        LockedAxes::ROTATION_LOCKED,
     ));
     commands.spawn((Camera2dBundle::default(), MainCamera));
 }

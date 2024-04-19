@@ -12,6 +12,7 @@ pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputManagerPlugin::<Action>::default())
+            .insert_resource(PlayerPosition(Vec2::ZERO))
             .add_event::<PlayerMoveEvent>()
             .add_systems(
                 Update,
@@ -19,10 +20,23 @@ impl Plugin for CharacterControllerPlugin {
                     movement_input,
                     movement,
                     apply_movement_damping,
+                    update_player_position,
                     tick_dash_cooldown,
                 )
                     .chain(),
             );
+    }
+}
+
+#[derive(Resource)]
+pub struct PlayerPosition(pub Vec2);
+
+fn update_player_position(
+    q_player: Query<&Transform, (With<Player>, Changed<Transform>)>,
+    mut player_pos: ResMut<PlayerPosition>,
+) {
+    if let Ok(player_tr) = q_player.get_single() {
+        player_pos.0 = player_tr.translation.truncate();
     }
 }
 
