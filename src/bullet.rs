@@ -65,6 +65,7 @@ pub enum GameLayer {
     Player,
     Enemy,
     Bullet,
+    XpCrumb,
 }
 
 impl ProjectileBundle {

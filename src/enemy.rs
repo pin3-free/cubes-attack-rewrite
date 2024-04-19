@@ -8,6 +8,7 @@ use crate::{
     bullet::GameLayer,
     character::{MovementAcceleration, MovementBundle, PlayerPosition, Pushed},
     hurtbox::{Dead, Hurt, HurtboxBundle},
+    xp_crumbs::XpCrumbBundle,
     Enemy, Player,
 };
 
@@ -143,8 +144,24 @@ fn enemy_on_hurt_system(q_hurt: Query<Entity, (With<Hurt>, With<Enemy>)>, mut co
     });
 }
 
-fn enemy_on_dead_system(q_dead: Query<Entity, (With<Dead>, With<Enemy>)>, mut commands: Commands) {
-    q_dead.iter().for_each(|entity| {
+fn enemy_on_dead_system(
+    q_dead: Query<(Entity, &Transform), (With<Dead>, With<Enemy>)>,
+    mut commands: Commands,
+) {
+    q_dead.iter().for_each(|(entity, transform)| {
+        let enemy_translation = transform.translation;
+        commands.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::splat(5.)),
+                    color: Color::WHITE,
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(enemy_translation),
+                ..Default::default()
+            },
+            XpCrumbBundle::new(5.),
+        ));
         commands.entity(entity).despawn_recursive();
     });
 }
