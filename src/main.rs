@@ -4,7 +4,7 @@ use bullet::{BulletPlugin, GameLayer};
 use character::{Action, CharacterControllerBundle, CharacterControllerPlugin};
 use enemy::EnemyPlugin;
 use hurtbox::{HurtboxBundle, HurtboxPlugin};
-use xp_crumbs::{XpCrumbBundle, XpCrumbPlugin};
+use xp_crumbs::XpCrumbPlugin;
 
 mod bullet;
 mod character;

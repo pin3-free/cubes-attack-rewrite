@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Div, time::Duration};
 
 use bevy::prelude::*;
 use bevy_xpbd_2d::{math::AdjustPrecision, prelude::*};
@@ -7,7 +7,7 @@ use rand::Rng;
 use crate::{
     bullet::GameLayer,
     character::{MovementAcceleration, MovementBundle, PlayerPosition, Pushed},
-    hurtbox::{Dead, Hurt, HurtboxBundle},
+    hurtbox::{DamageTaken, Dead, Hurt, HurtboxBundle},
     xp_crumbs::XpCrumbBundle,
     Enemy, Player,
 };
@@ -16,18 +16,23 @@ pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemySpawner::default()).add_systems(
-            Update,
-            (
-                enemy_on_hurt_system,
-                enemy_on_dead_system,
-                spawn_enemies,
-                update_spawner_timer,
-                push_player_on_contact,
-                move_enemies_system,
-            )
-                .chain(),
-        );
+        app.insert_resource(EnemyHealthScaling(1.))
+            .insert_resource(EnemySpawner::default())
+            .add_systems(
+                Update,
+                (
+                    enemy_on_hurt_system,
+                    enemy_on_dead_system,
+                    spawn_enemies,
+                    update_enemy_health_scaling,
+                    update_spawner_timer,
+                    push_player_on_contact,
+                    damage_player_on_contact,
+                    tick_invulnerable,
+                    move_enemies_system,
+                )
+                    .chain(),
+            );
     }
 }
 
@@ -42,6 +47,13 @@ impl Default for EnemySpawner {
     fn default() -> Self {
         Self::new(1., 2.)
     }
+}
+
+#[derive(Resource)]
+struct EnemyHealthScaling(f32);
+
+fn update_enemy_health_scaling(time: Res<Time>, mut scaling: ResMut<EnemyHealthScaling>) {
+    scaling.0 = (1. as f32).max(time.elapsed_seconds().div_euclid(60.).div(2.));
 }
 
 impl EnemySpawner {
@@ -78,12 +90,13 @@ fn spawn_enemies(
     time: Res<Time>,
     player_pos: Res<PlayerPosition>,
     mut spawner: ResMut<EnemySpawner>,
+    scaling: Res<EnemyHealthScaling>,
     mut commands: Commands,
 ) {
     if spawner.timer.tick(time.delta()).finished() {
         let new_spawn_pos = EnemySpawner::get_new_spawn_location(player_pos.0, 400.);
         commands.spawn((
-            EnemyBundle::new(Collider::circle(16.)),
+            EnemyBundle::new(Collider::circle(16.), 15. * scaling.0),
             EnemyBundle::sprite_bundle(Transform::from_xyz(new_spawn_pos.x, new_spawn_pos.y, 0.)),
             LockedAxes::ROTATION_LOCKED,
         ));
@@ -107,7 +120,7 @@ pub struct EnemyBundle {
 }
 
 impl EnemyBundle {
-    pub fn new(collider: Collider) -> Self {
+    pub fn new(collider: Collider, health: f32) -> Self {
         Self {
             enemy: Enemy,
             rigid_body: RigidBody::Dynamic,
@@ -117,7 +130,7 @@ impl EnemyBundle {
                 GameLayer::Enemy,
                 [GameLayer::Enemy, GameLayer::Player, GameLayer::Bullet],
             ),
-            hurtbox: HurtboxBundle::new(15.),
+            hurtbox: HurtboxBundle::new(health),
         }
     }
 
@@ -183,6 +196,46 @@ fn push_player_on_contact(
                         .insert(Pushed::new(push_dir, 5.));
                 }
             })
+    }
+}
+
+#[derive(Component)]
+pub struct Invulnerable(Timer);
+
+impl Default for Invulnerable {
+    fn default() -> Self {
+        Self(Timer::from_seconds(1., TimerMode::Once))
+    }
+}
+
+fn tick_invulnerable(
+    time: Res<Time>,
+    mut q_invulnerable: Query<(Entity, &mut Invulnerable)>,
+    mut commands: Commands,
+) {
+    q_invulnerable
+        .iter_mut()
+        .for_each(|(entity, mut invulnerable)| {
+            if invulnerable.0.tick(time.delta()).finished() {
+                commands.entity(entity).remove::<Invulnerable>();
+            }
+        })
+}
+
+fn damage_player_on_contact(
+    q_player: Query<Entity, (With<Player>, Without<Invulnerable>)>,
+    q_enemy_collisions: Query<&CollidingEntities, With<Enemy>>,
+    mut commands: Commands,
+) {
+    if let Ok(player_entity) = q_player.get_single() {
+        q_enemy_collisions.iter().for_each(|colliding_entities| {
+            if colliding_entities.0.contains(&player_entity) {
+                commands.entity(player_entity).insert(DamageTaken(5.));
+                commands
+                    .entity(player_entity)
+                    .insert(Invulnerable::default());
+            }
+        });
     }
 }
 
