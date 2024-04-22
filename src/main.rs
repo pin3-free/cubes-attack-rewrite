@@ -1,38 +1,19 @@
 use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
+use blink::BlinkPlugin;
 
+mod blink;
 mod bullet;
 mod character;
 mod enemy;
 mod hurtbox;
+mod player;
 mod prelude;
 mod xp_crumbs;
 
 fn setup(mut commands: Commands) {
-    commands
-        .spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::RED,
-                    custom_size: Some(Vec2::splat(32.)),
-                    ..default()
-                },
-                ..Default::default()
-            },
-            CharacterControllerBundle::new(Collider::circle(16.), Action::default_input_map()),
-            Player,
-            HurtboxBundle::new(15.),
-            CollisionLayers::new(GameLayer::Player, [GameLayer::Enemy]),
-            LockedAxes::ROTATION_LOCKED,
-        ))
-        .with_children(|children| {
-            children.spawn((
-                Collider::circle(200.),
-                Sensor,
-                CollisionLayers::new(GameLayer::Player, [GameLayer::XpCrumb]),
-            ));
-        });
+    commands.add(SpawnPlayer::default());
     commands.spawn((Camera2dBundle::default(), MainCamera));
 }
 
@@ -47,6 +28,8 @@ fn main() {
             EnemyPlugin,
             HurtboxPlugin,
             XpCrumbPlugin,
+            PlayerPlugin,
+            BlinkPlugin,
         ))
         .add_systems(Startup, setup)
         .insert_resource(Gravity(Vec2::ZERO))

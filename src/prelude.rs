@@ -8,7 +8,7 @@ pub use crate::character::{
     MovementBundle, PlayerPosition, Pushed,
 };
 
-pub use crate::enemy::EnemyPlugin;
+pub use crate::enemy::{EnemyPlugin, EnemyTouchedPlayerEvent};
 
 pub use crate::bullet::{BulletPlugin, GameLayer, Projectile, ProjectileHitEvent};
 
@@ -16,11 +16,10 @@ pub use crate::hurtbox::{DamageTaken, Dead, Health, Hurt, HurtboxBundle, Hurtbox
 
 pub use crate::xp_crumbs::{XpCrumbBundle, XpCrumbPlugin};
 
+pub use crate::player::{Player, PlayerPlugin, SpawnPlayer};
+
 #[derive(Component)]
 pub struct MainCamera;
-
-#[derive(Component, Debug)]
-pub struct Player;
 
 #[derive(Component, Debug)]
 pub struct Enemy;

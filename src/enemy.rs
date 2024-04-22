@@ -15,6 +15,7 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyHealthScaling(1.))
+            .add_event::<EnemyTouchedPlayerEvent>()
             .add_event::<EntityEvent<EntityDamaged, Enemy>>()
             .add_event::<EntityEvent<EntityDead, Enemy>>()
             .insert_resource(EnemySpawner::default())
@@ -27,7 +28,7 @@ impl Plugin for EnemyPlugin {
                     update_enemy_health_scaling,
                     update_spawner_timer,
                     push_player_on_contact,
-                    damage_player_on_contact,
+                    emit_player_contact_events,
                     tick_invulnerable,
                     move_enemies_system,
                 )
@@ -258,6 +259,12 @@ fn push_player_on_contact(
 #[derive(Component)]
 pub struct Invulnerable(Timer);
 
+impl Invulnerable {
+    pub fn new(duration: f32) -> Self {
+        Self(Timer::from_seconds(duration, TimerMode::Once))
+    }
+}
+
 impl Default for Invulnerable {
     fn default() -> Self {
         Self(Timer::from_seconds(1., TimerMode::Once))
@@ -278,20 +285,34 @@ fn tick_invulnerable(
         })
 }
 
-fn damage_player_on_contact(
+#[derive(Event)]
+pub struct EnemyTouchedPlayerEvent {
+    pub enemy: Entity,
+}
+
+impl EnemyTouchedPlayerEvent {
+    fn new(enemy: Entity) -> Self {
+        Self { enemy }
+    }
+}
+
+fn emit_player_contact_events(
     q_player: Query<Entity, (With<Player>, Without<Invulnerable>)>,
-    q_enemy_collisions: Query<&CollidingEntities, With<Enemy>>,
-    mut commands: Commands,
+    q_enemies: Query<(Entity, &CollidingEntities), With<Enemy>>,
+    mut ev_writer: EventWriter<EnemyTouchedPlayerEvent>,
 ) {
     if let Ok(player_entity) = q_player.get_single() {
-        q_enemy_collisions.iter().for_each(|colliding_entities| {
-            if colliding_entities.0.contains(&player_entity) {
-                commands.entity(player_entity).insert(DamageTaken(5.));
-                commands
-                    .entity(player_entity)
-                    .insert(Invulnerable::default());
-            }
-        });
+        q_enemies
+            .iter()
+            .for_each(|(enemy_entity, colliding_entities)| {
+                if colliding_entities.0.contains(&player_entity) {
+                    ev_writer.send(EnemyTouchedPlayerEvent::new(enemy_entity));
+                    // commands.entity(player_entity).insert(DamageTaken(5.));
+                    // commands
+                    //     .entity(player_entity)
+                    //     .insert(Invulnerable::default());
+                }
+            });
     }
 }
 
