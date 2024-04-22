@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
 
-use crate::bullet::GameLayer;
+use crate::prelude::GameLayer;
 
 pub struct XpCrumbPlugin;
 

@@ -1,16 +1,11 @@
 use std::{ops::Div, time::Duration};
 
+use bevy::ecs::system::Command;
 use bevy::prelude::*;
 use bevy_xpbd_2d::{math::AdjustPrecision, prelude::*};
 use rand::Rng;
 
-use crate::{
-    bullet::GameLayer,
-    character::{MovementAcceleration, MovementBundle, PlayerPosition, Pushed},
-    hurtbox::{DamageTaken, Dead, Hurt, HurtboxBundle},
-    xp_crumbs::XpCrumbBundle,
-    Enemy, Player,
-};
+use crate::prelude::*;
 
 pub struct EnemyPlugin;
 
@@ -75,14 +70,45 @@ impl EnemySpawner {
     fn update(&mut self) {
         self.timer = Self::get_timer(self.min_delay.as_secs_f32(), self.max_delay.as_secs_f32());
     }
+}
 
-    fn get_new_spawn_location(player_position: Vec2, distance_from_player: f32) -> Vec2 {
+struct SpawnEnemy {
+    position: Vec2,
+}
+
+impl SpawnEnemy {
+    fn angle_from_player(
+        player_position: Vec2,
+        distance_from_player: f32,
+        attack_angle: f32,
+    ) -> Self {
         let new_spawn_vec = Vec2::X * distance_from_player;
-        let attack_angle = rand::thread_rng().gen_range((0.)..std::f32::consts::TAU);
         let result_position = Quat::from_rotation_z(attack_angle)
             .mul_vec3(new_spawn_vec.extend(0.))
             .truncate();
-        result_position + player_position
+
+        Self {
+            position: result_position + player_position,
+        }
+    }
+
+    fn random_angle(player_position: Vec2, distance_from_player: f32) -> Self {
+        let attack_angle = rand::thread_rng().gen_range((0.)..(std::f32::consts::TAU));
+        Self::angle_from_player(player_position, distance_from_player, attack_angle)
+    }
+}
+
+impl Command for SpawnEnemy {
+    fn apply(self, world: &mut World) {
+        let scaling = world
+            .get_resource::<EnemyHealthScaling>()
+            .expect("Failed to obtain enemy health scaling handle");
+
+        world.spawn((
+            EnemyBundle::new(Collider::circle(16.), 15. * scaling.0),
+            EnemyBundle::sprite_bundle(Transform::from_xyz(self.position.x, self.position.y, 0.)),
+            LockedAxes::ROTATION_LOCKED,
+        ));
     }
 }
 
@@ -90,16 +116,10 @@ fn spawn_enemies(
     time: Res<Time>,
     player_pos: Res<PlayerPosition>,
     mut spawner: ResMut<EnemySpawner>,
-    scaling: Res<EnemyHealthScaling>,
     mut commands: Commands,
 ) {
     if spawner.timer.tick(time.delta()).finished() {
-        let new_spawn_pos = EnemySpawner::get_new_spawn_location(player_pos.0, 400.);
-        commands.spawn((
-            EnemyBundle::new(Collider::circle(16.), 15. * scaling.0),
-            EnemyBundle::sprite_bundle(Transform::from_xyz(new_spawn_pos.x, new_spawn_pos.y, 0.)),
-            LockedAxes::ROTATION_LOCKED,
-        ));
+        commands.add(SpawnEnemy::random_angle(player_pos.0, 400.));
     }
 }
 

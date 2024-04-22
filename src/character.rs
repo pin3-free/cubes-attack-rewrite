@@ -5,9 +5,9 @@ use bevy_xpbd_2d::{
 };
 use leafwing_input_manager::prelude::*;
 
-use crate::Player;
-
 pub struct CharacterControllerPlugin;
+
+use crate::prelude::Player;
 
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {

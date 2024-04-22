@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::Player;
+use crate::prelude::Player;
 
 pub struct HurtboxPlugin;
 

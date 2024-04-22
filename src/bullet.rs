@@ -4,11 +4,7 @@ use leafwing_input_manager::prelude::*;
 
 use rand::Rng;
 
-use crate::{
-    character::{Action, MovementAcceleration, MovementBundle},
-    hurtbox::DamageTaken,
-    MainCamera, Player,
-};
+use crate::prelude::*;
 
 pub struct BulletPlugin;
 

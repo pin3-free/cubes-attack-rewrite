@@ -1,19 +1,13 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
-use bullet::{BulletPlugin, GameLayer};
-use character::{Action, CharacterControllerBundle, CharacterControllerPlugin};
-use enemy::EnemyPlugin;
-use hurtbox::{HurtboxBundle, HurtboxPlugin};
-use xp_crumbs::XpCrumbPlugin;
 
 mod bullet;
 mod character;
 mod enemy;
 mod hurtbox;
+mod prelude;
 mod xp_crumbs;
-
-#[derive(Component)]
-pub struct MainCamera;
 
 fn setup(mut commands: Commands) {
     commands
@@ -58,9 +52,3 @@ fn main() {
         .insert_resource(Gravity(Vec2::ZERO))
         .run();
 }
-
-#[derive(Component)]
-struct Player;
-
-#[derive(Component)]
-struct Enemy;
