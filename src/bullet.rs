@@ -1,3 +1,6 @@
+use std::fmt::Debug;
+use std::marker::PhantomData;
+
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_xpbd_2d::{math::AdjustPrecision, prelude::*};
 use leafwing_input_manager::prelude::*;
@@ -10,7 +13,9 @@ pub struct BulletPlugin;
 
 impl Plugin for BulletPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CursorPosition::default())
+        app.add_event::<ProjectileHitEvent<Enemy>>()
+            .add_event::<ProjectileHitEvent<Player>>()
+            .insert_resource(CursorPosition::default())
             .add_event::<ShootEvent>()
             .add_systems(
                 Update,
@@ -19,7 +24,8 @@ impl Plugin for BulletPlugin {
                     shoot_input,
                     bullet_spawner,
                     move_bullets,
-                    apply_damage_system,
+                    emit_projectile_hits::<Enemy>,
+                    emit_projectile_hits::<Player>,
                     tick_shot,
                     expire_bullets,
                 )
@@ -32,7 +38,7 @@ impl Plugin for BulletPlugin {
 pub struct Projectile;
 
 #[derive(Component, Debug, Clone, Copy)]
-pub struct ProjectileDamage(f32);
+pub struct ProjectileDamage(pub f32);
 
 #[derive(Bundle, Debug)]
 pub struct ProjectileBundle {
@@ -236,18 +242,32 @@ fn bullet_spawner(mut ev_reader: EventReader<ShootEvent>, mut commands: Commands
     )
 }
 
-fn apply_damage_system(
-    hit_targets: Query<(Entity, &ProjectileDamage, &CollidingEntities), With<Projectile>>,
-    mut commands: Commands,
+#[derive(Event, Debug)]
+pub struct ProjectileHitEvent<T: Component + Debug> {
+    pub projectile: Entity,
+    pub target: Entity,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component + Debug> ProjectileHitEvent<T> {
+    fn new(projectile: Entity, target: Entity) -> Self {
+        Self {
+            projectile,
+            target,
+            marker: Default::default(),
+        }
+    }
+}
+
+fn emit_projectile_hits<T: Component + Debug>(
+    hit_targets: Query<(Entity, &CollidingEntities), With<Projectile>>,
+    mut ev_writer: EventWriter<ProjectileHitEvent<T>>,
 ) {
-    hit_targets
-        .iter()
-        .for_each(|(entity, damage, colliding_entities)| {
-            if !colliding_entities.0.is_empty() {
-                colliding_entities.0.iter().for_each(|target| {
-                    commands.entity(*target).insert(DamageTaken(damage.0));
-                });
-                commands.entity(entity).despawn_recursive();
-            }
-        });
+    hit_targets.iter().for_each(|(entity, colliding_entities)| {
+        if !colliding_entities.0.is_empty() {
+            colliding_entities.0.iter().for_each(|target| {
+                ev_writer.send(ProjectileHitEvent::new(entity, *target));
+            });
+        }
+    });
 }

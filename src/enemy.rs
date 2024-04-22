@@ -5,18 +5,23 @@ use bevy::prelude::*;
 use bevy_xpbd_2d::{math::AdjustPrecision, prelude::*};
 use rand::Rng;
 
-use crate::prelude::*;
+use crate::{
+    bullet::{Projectile, ProjectileDamage},
+    prelude::*,
+};
 
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyHealthScaling(1.))
+            .add_event::<EntityEvent<EntityDamaged, Enemy>>()
+            .add_event::<EntityEvent<EntityDead, Enemy>>()
             .insert_resource(EnemySpawner::default())
             .add_systems(
                 Update,
                 (
-                    enemy_on_hurt_system,
+                    handle_projectile_hits,
                     enemy_on_dead_system,
                     spawn_enemies,
                     update_enemy_health_scaling,
@@ -171,32 +176,63 @@ impl EnemyBundle {
     }
 }
 
-fn enemy_on_hurt_system(q_hurt: Query<Entity, (With<Hurt>, With<Enemy>)>, mut commands: Commands) {
-    q_hurt.iter().for_each(|entity| {
-        commands.entity(entity).remove::<Hurt>();
-    });
+fn handle_projectile_hits(
+    q_projectiles: Query<&ProjectileDamage, With<Projectile>>,
+    mut q_enemies: Query<&mut Health, With<Enemy>>,
+    mut ev_reader: EventReader<ProjectileHitEvent<Enemy>>,
+    // mut hit_writer: EventWriter<EntityEvent<EntityDamaged, Enemy>>,
+    mut dead_writer: EventWriter<EntityEvent<EntityDead, Enemy>>,
+    mut commands: Commands,
+) {
+    ev_reader.read().for_each(
+        |ProjectileHitEvent::<Enemy> {
+             projectile, target, ..
+         }| {
+            // dbg!("Handling collision", projectile, target);
+            let projectile_damage = q_projectiles
+                .get(*projectile)
+                .expect("Failed to find projectile");
+
+            let mut enemy_health = q_enemies.get_mut(*target).expect("Failed to find enemy");
+            // hit_writer.send(EntityEvent::new(*target));
+
+            enemy_health.cur_hp -= projectile_damage.0;
+
+            if enemy_health.cur_hp <= 0. {
+                dead_writer.send(EntityEvent::new(*target));
+            }
+            commands.entity(*projectile).add(RemoveEntity);
+        },
+    );
 }
 
 fn enemy_on_dead_system(
-    q_dead: Query<(Entity, &Transform), (With<Dead>, With<Enemy>)>,
+    q_enemies: Query<&Transform, With<Enemy>>,
+    mut dead_reader: EventReader<EntityEvent<EntityDead, Enemy>>,
     mut commands: Commands,
 ) {
-    q_dead.iter().for_each(|(entity, transform)| {
-        let enemy_translation = transform.translation;
-        commands.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::splat(5.)),
-                    color: Color::WHITE,
+    dead_reader
+        .read()
+        .for_each(|EntityEvent::<EntityDead, Enemy> { entity, .. }| {
+            let enemy_translation = q_enemies
+                .get(*entity)
+                .expect("Entity not found")
+                .translation;
+
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::splat(5.)),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                    transform: Transform::from_translation(enemy_translation),
                     ..Default::default()
                 },
-                transform: Transform::from_translation(enemy_translation),
-                ..Default::default()
-            },
-            XpCrumbBundle::new(5.),
-        ));
-        commands.entity(entity).despawn_recursive();
-    });
+                XpCrumbBundle::new(5.),
+            ));
+            commands.entity(*entity).despawn_recursive();
+        });
 }
 
 fn push_player_on_contact(

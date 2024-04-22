@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy::prelude::*;
 
 use crate::prelude::Player;
@@ -35,6 +37,18 @@ pub struct Hurt;
 
 #[derive(Component)]
 pub struct Dead;
+
+#[derive(Event)]
+pub struct EntityHurtEvent<T: Component> {
+    entity: Entity,
+    marker: PhantomData<T>,
+}
+
+#[derive(Event)]
+pub struct EntityDeadEvent<T: Component> {
+    entity: Entity,
+    marker: PhantomData<T>,
+}
 
 #[derive(Bundle)]
 pub struct HurtboxBundle {
