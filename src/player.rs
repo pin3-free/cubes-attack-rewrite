@@ -1,4 +1,4 @@
-use crate::blink::Blink;
+use crate::blink::GoInvulnerable;
 use crate::enemy::Invulnerable;
 use crate::prelude::*;
 use bevy::ecs::system::Command;
@@ -106,11 +106,8 @@ fn on_player_hit(
     mut ev_reader: EventReader<EntityEvent<EntityDamaged, Player>>,
     mut commands: Commands,
 ) {
+    dbg!("Ouch");
     ev_reader.read().for_each(|ev| {
-        let inv_duration = 1.;
-        commands.entity(ev.entity).add(Blink::new(inv_duration, 10));
-        commands
-            .entity(ev.entity)
-            .insert(Invulnerable::new(inv_duration));
+        commands.entity(ev.entity).add(GoInvulnerable::new(2., 5));
     })
 }

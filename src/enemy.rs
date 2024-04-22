@@ -29,7 +29,6 @@ impl Plugin for EnemyPlugin {
                     update_spawner_timer,
                     push_player_on_contact,
                     emit_player_contact_events,
-                    tick_invulnerable,
                     move_enemies_system,
                 )
                     .chain(),
@@ -189,7 +188,6 @@ fn handle_projectile_hits(
         |ProjectileHitEvent::<Enemy> {
              projectile, target, ..
          }| {
-            // dbg!("Handling collision", projectile, target);
             let projectile_damage = q_projectiles
                 .get(*projectile)
                 .expect("Failed to find projectile");
@@ -257,33 +255,7 @@ fn push_player_on_contact(
 }
 
 #[derive(Component)]
-pub struct Invulnerable(Timer);
-
-impl Invulnerable {
-    pub fn new(duration: f32) -> Self {
-        Self(Timer::from_seconds(duration, TimerMode::Once))
-    }
-}
-
-impl Default for Invulnerable {
-    fn default() -> Self {
-        Self(Timer::from_seconds(1., TimerMode::Once))
-    }
-}
-
-fn tick_invulnerable(
-    time: Res<Time>,
-    mut q_invulnerable: Query<(Entity, &mut Invulnerable)>,
-    mut commands: Commands,
-) {
-    q_invulnerable
-        .iter_mut()
-        .for_each(|(entity, mut invulnerable)| {
-            if invulnerable.0.tick(time.delta()).finished() {
-                commands.entity(entity).remove::<Invulnerable>();
-            }
-        })
-}
+pub struct Invulnerable;
 
 #[derive(Event)]
 pub struct EnemyTouchedPlayerEvent {

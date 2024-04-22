@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use std::time::Duration;
 
+use crate::enemy::Invulnerable;
 use bevy::ecs::system::EntityCommand;
 
 pub struct BlinkPlugin;
@@ -11,44 +12,47 @@ impl Plugin for BlinkPlugin {
     }
 }
 
-impl EntityCommand for Blink {
+impl EntityCommand for GoInvulnerable {
     fn apply(self, entity: Entity, world: &mut World) {
+        dbg!("I'm invulnerable!");
         world
             .entity_mut(entity)
-            .insert(BlinkBundle::new(self.duration, self.frequency));
+            .insert(BlinkBundle::new(self.duration, self.blink_frequency))
+            .insert(Invulnerable);
     }
 }
 
-pub struct Blink {
+pub struct GoInvulnerable {
     pub(crate) duration: Duration,
-    pub(crate) frequency: u32,
+    pub(crate) blink_frequency: u32,
 }
 
-impl Default for Blink {
+impl Default for GoInvulnerable {
     fn default() -> Self {
         Self {
             duration: Duration::from_secs_f32(2.),
-            frequency: 10,
+            blink_frequency: 10,
         }
     }
 }
 
 #[allow(dead_code)]
-impl Blink {
+impl GoInvulnerable {
     pub(crate) fn new(duration: f32, frequency: u32) -> Self {
         Self {
             duration: Duration::from_secs_f32(duration),
-            frequency,
+            blink_frequency: frequency,
         }
     }
 }
 
-pub struct StopBlinking;
+pub struct StopInvulnerability;
 
-impl EntityCommand for StopBlinking {
+impl EntityCommand for StopInvulnerability {
     fn apply(self, id: Entity, world: &mut World) {
+        dbg!("Uh-oh!");
         if let Some(mut world_mut) = world.get_entity_mut(id) {
-            world_mut.remove::<BlinkBundle>();
+            world_mut.remove::<BlinkBundle>().remove::<Invulnerable>();
         }
     }
 }
@@ -94,7 +98,7 @@ pub(crate) fn blink_system(
                 blink_timer.0.reset();
 
                 if blink_count.0 == 0 {
-                    commands.entity(entity).add(StopBlinking);
+                    commands.entity(entity).add(StopInvulnerability);
                     *visibility = Visibility::Visible;
                 }
             }
