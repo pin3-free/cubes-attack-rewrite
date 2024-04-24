@@ -32,7 +32,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default(),
-            PhysicsDebugPlugin::default(),
+            // PhysicsDebugPlugin::default(),
             CharacterControllerPlugin,
             BulletPlugin,
             EnemyPlugin,

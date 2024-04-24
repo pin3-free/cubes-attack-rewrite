@@ -1,5 +1,6 @@
 use crate::blink::GoInvulnerable;
 use crate::enemy::Invulnerable;
+use crate::hurtbox::TakeDamage;
 use crate::prelude::*;
 use bevy::ecs::system::{Command, EntityCommand, SystemState};
 use bevy::prelude::*;
@@ -19,19 +20,20 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<EntityEvent<EntityDead, Player>>()
-            .add_event::<EntityEvent<EntityDamaged, Player>>()
+        app.add_event::<EntityEvent<Died, Player>>()
+            .add_event::<EntityEvent<TookDamage, Player>>()
+            .add_event::<EntityEvent<Healed, Player>>()
             .add_systems(
                 Update,
                 (handle_enemy_collisions,).run_if(on_event::<EnemyTouchedPlayerEvent>()),
             )
             .add_systems(
                 Update,
-                (on_player_dead,).run_if(on_event::<EntityEvent<EntityDead, Player>>()),
+                (on_player_dead,).run_if(on_event::<EntityEvent<Died, Player>>()),
             )
             .add_systems(
                 Update,
-                (on_player_hit,).run_if(on_event::<EntityEvent<EntityDamaged, Player>>()),
+                (on_player_hit,).run_if(on_event::<EntityEvent<TookDamage, Player>>()),
             );
     }
 }
@@ -66,7 +68,10 @@ impl Command for SpawnPlayer {
                 ),
                 Player,
                 HurtboxBundle::new(self.health),
-                CollisionLayers::new(GameLayer::Player, [GameLayer::Enemy]),
+                CollisionLayers::new(
+                    GameLayer::Player,
+                    [GameLayer::Enemy, GameLayer::HealingCrumb],
+                ),
                 LockedAxes::ROTATION_LOCKED,
             ))
             .with_children(|children| {
@@ -114,14 +119,20 @@ impl EntityCommand for GetPushed {
 
 fn handle_enemy_collisions(
     mut ev_reader: EventReader<EnemyTouchedPlayerEvent>,
-    mut damaged_writer: EventWriter<EntityEvent<EntityDamaged, Player>>,
     mut commands: Commands,
-    q_player: Query<(Entity, &Transform), (With<Player>, Without<Enemy>)>,
+    q_player: Query<(Entity, &Transform, Option<&Invulnerable>), (With<Player>, Without<Enemy>)>,
     q_enemies: Query<&Transform, With<Enemy>>,
 ) {
-    if let Ok((player_entity, player_tr)) = q_player.get_single() {
+    if let Ok((player_entity, player_tr, player_invulnerable)) = q_player.get_single() {
+        let mut applied_dmg = false;
         ev_reader.read().for_each(|ev| {
-            damaged_writer.send(EntityEvent::new(player_entity));
+            if !applied_dmg && !player_invulnerable.is_some() {
+                commands
+                    .entity(player_entity)
+                    .add(TakeDamage::<Player>::new(5.))
+                    .add(GoInvulnerable::new(2., 5));
+                applied_dmg = true;
+            }
 
             let enemy_tr = q_enemies
                 .get(ev.enemy)
@@ -134,28 +145,14 @@ fn handle_enemy_collisions(
     }
 }
 
-fn on_player_dead(mut ev_reader: EventReader<EntityEvent<EntityDead, Player>>) {
+fn on_player_dead(mut ev_reader: EventReader<EntityEvent<Died, Player>>) {
     dbg!("Player is dead and we killed him");
 }
 
-fn on_player_hit(
-    mut ev_reader: EventReader<EntityEvent<EntityDamaged, Player>>,
-    mut dead_writer: EventWriter<EntityEvent<EntityDead, Player>>,
-    mut q_health: Query<(&mut Health, Option<&Invulnerable>), With<Player>>,
-    mut commands: Commands,
-) {
-    let mut applied_dmg = false;
-    ev_reader.read().take(1).for_each(|ev| {
-        let (mut player_hp, player_invulnerable) =
-            q_health.get_mut(ev.entity).expect("Player had no health");
+fn on_player_hit(mut ev_reader: EventReader<EntityEvent<TookDamage, Player>>) {
+    dbg!("Skill issue");
+}
 
-        if player_invulnerable.is_none() {
-            player_hp.cur_hp -= 5.;
-            commands.entity(ev.entity).add(GoInvulnerable::new(2., 5));
-            applied_dmg = true;
-        }
-        if player_hp.cur_hp <= 0. {
-            dead_writer.send(EntityEvent::new(ev.entity));
-        }
-    })
+fn on_player_heal(mut ev_reader: EventReader<EntityEvent<Healed, Player>>) {
+    dbg!("Skill solution");
 }

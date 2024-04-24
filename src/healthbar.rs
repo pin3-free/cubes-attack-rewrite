@@ -24,24 +24,26 @@ pub struct HealthbarBackground;
 pub struct HealthbarForeground;
 
 impl SpawnHealthbar {
-    fn new(tracked_entity: Entity) -> Self {
+    pub fn new(tracked_entity: Entity) -> Self {
         Self { tracked_entity }
     }
 }
 
 impl Command for SpawnHealthbar {
     fn apply(self, world: &mut World) {
-        let entity_health = *(SystemState::<Query<&Health>>::new(world)
-            .get(world)
+        let mut system_state = SystemState::<Query<(&Health, &Transform)>>::new(world);
+        let query = system_state.get(world);
+        let (hp_ref, tr_ref) = query
             .get(self.tracked_entity)
-            .expect("Entity does not have health"));
+            .expect("Entity does not exist");
+        let (entity_health, entity_tr) = (*hp_ref, *tr_ref);
 
-        let max_width = 100.;
+        let max_width = 32.;
         let remaining_width = max_width * entity_health.remaining_fraction();
         let bar_height = 10.;
 
         let bg_mesh = world.resource_scope(|_world, mut meshes: Mut<Assets<Mesh>>| {
-            meshes.add(Mesh::from(Rectangle::new(100., bar_height)))
+            meshes.add(Mesh::from(Rectangle::new(max_width, bar_height)))
         });
 
         let bg_material =
@@ -63,7 +65,11 @@ impl Command for SpawnHealthbar {
                 MaterialMesh2dBundle {
                     mesh: bg_mesh.into(),
                     material: bg_material,
-                    transform: Transform::from_xyz(0., 0., 1.),
+                    transform: Transform::from_xyz(
+                        entity_tr.translation.x,
+                        entity_tr.translation.y - 28.,
+                        1.,
+                    ),
                     ..Default::default()
                 },
                 HealthbarBackground,
@@ -99,7 +105,7 @@ pub struct DeleteHealthbar {
 }
 
 impl DeleteHealthbar {
-    fn new(target_entity: Entity) -> Self {
+    pub fn new(target_entity: Entity) -> Self {
         Self { target_entity }
     }
 }
@@ -116,10 +122,7 @@ impl Command for DeleteHealthbar {
     }
 }
 
-fn update_healthbars(
-    q_with_bars: Query<Entity, (Changed<Health>, With<LinkedHealthbarId>)>,
-    mut commands: Commands,
-) {
+fn update_healthbars(q_with_bars: Query<Entity, With<LinkedHealthbarId>>, mut commands: Commands) {
     q_with_bars.iter().for_each(|entity| {
         commands.add(DeleteHealthbar::new(entity));
         commands.add(SpawnHealthbar::new(entity));

@@ -18,7 +18,6 @@ impl Plugin for CharacterControllerPlugin {
                 Update,
                 (
                     movement_input,
-                    process_pushed,
                     movement,
                     apply_movement_damping,
                     update_player_position,
@@ -162,44 +161,6 @@ impl Default for DashCooldown {
     fn default() -> Self {
         Self(Timer::from_seconds(0.5, TimerMode::Once))
     }
-}
-
-#[derive(Component)]
-pub struct PushDirection(Vec2);
-
-#[derive(Component)]
-pub struct Pushed {
-    direction: PushDirection,
-    acceleration: MovementAcceleration,
-}
-
-impl Pushed {
-    fn get_push_vector(&self) -> Vec2 {
-        self.direction.0 * self.acceleration.0
-    }
-}
-
-impl Pushed {
-    pub fn new(direction: Vec2, acceleration: f32) -> Self {
-        Self {
-            direction: PushDirection(direction),
-            acceleration: MovementAcceleration(acceleration),
-        }
-    }
-}
-
-fn process_pushed(
-    mut pushed_q: Query<(&mut LinearVelocity, &Pushed, Entity)>,
-    mut commands: Commands,
-) {
-    pushed_q
-        .iter_mut()
-        .for_each(|(mut velocity, pushed, entity)| {
-            let push_vector = pushed.get_push_vector();
-            velocity.x += push_vector.x;
-            velocity.y += push_vector.y;
-            commands.entity(entity).remove::<Pushed>();
-        })
 }
 
 fn movement(

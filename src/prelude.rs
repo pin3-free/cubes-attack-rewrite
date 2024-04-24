@@ -5,12 +5,12 @@ use std::marker::PhantomData;
 
 pub use crate::character::{
     Action, CharacterControllerBundle, CharacterControllerPlugin, MovementAcceleration,
-    MovementBundle, PlayerPosition, Pushed,
+    MovementBundle, PlayerPosition,
 };
 
 pub use crate::enemy::{EnemyPlugin, EnemyTouchedPlayerEvent};
 
-pub use crate::bullet::{BulletPlugin, GameLayer, Projectile, ProjectileHitEvent};
+pub use crate::bullet::{BulletPlugin, GameLayer, ProjectileHitEvent};
 
 pub use crate::hurtbox::{Health, HurtboxBundle};
 
@@ -36,15 +36,19 @@ impl EntityCommand for RemoveEntity {
 }
 
 #[derive(Debug)]
-pub struct EntityDead;
+pub struct Died;
 
 #[derive(Debug)]
-pub struct EntityDamaged;
+pub struct TookDamage;
+
+#[derive(Debug)]
+pub struct Healed;
 
 pub trait EventType: Debug {}
 
-impl EventType for EntityDead {}
-impl EventType for EntityDamaged {}
+impl EventType for Died {}
+impl EventType for TookDamage {}
+impl EventType for Healed {}
 
 #[derive(Event)]
 pub struct EntityEvent<EvT: EventType, EnT: Component + Debug> {

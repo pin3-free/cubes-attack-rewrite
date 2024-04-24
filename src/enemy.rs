@@ -1,13 +1,16 @@
 use std::{ops::Div, time::Duration};
 
-use bevy::ecs::system::Command;
+use bevy::ecs::system::{Command, SystemState};
 use bevy::prelude::*;
 use bevy_xpbd_2d::{math::AdjustPrecision, prelude::*};
 use rand::Rng;
 
+use crate::healthbar::{DeleteHealthbar, SpawnHealthbar};
 use crate::{
     bullet::{Projectile, ProjectileDamage},
+    hurtbox::TakeDamage,
     prelude::*,
+    xp_crumbs::{HealingCrumb, SpawnCrumb, XpCrumb},
 };
 
 pub struct EnemyPlugin;
@@ -16,18 +19,17 @@ impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyHealthScaling(1.))
             .add_event::<EnemyTouchedPlayerEvent>()
-            .add_event::<EntityEvent<EntityDamaged, Enemy>>()
-            .add_event::<EntityEvent<EntityDead, Enemy>>()
+            .add_event::<EntityEvent<TookDamage, Enemy>>()
+            .add_event::<EntityEvent<Died, Enemy>>()
             .insert_resource(EnemySpawner::default())
             .add_systems(
                 Update,
                 (
-                    handle_projectile_hits,
-                    enemy_on_dead_system,
+                    (handle_projectile_hits).run_if(on_event::<ProjectileHitEvent<Enemy>>()),
+                    (enemy_on_dead_system).run_if(on_event::<EntityEvent<Died, Enemy>>()),
                     spawn_enemies,
                     update_enemy_health_scaling,
                     update_spawner_timer,
-                    // push_player_on_contact,
                     emit_player_contact_events,
                     move_enemies_system,
                 )
@@ -178,9 +180,7 @@ impl EnemyBundle {
 
 fn handle_projectile_hits(
     q_projectiles: Query<&ProjectileDamage, With<Projectile>>,
-    mut q_enemies: Query<&mut Health, With<Enemy>>,
     mut ev_reader: EventReader<ProjectileHitEvent<Enemy>>,
-    mut dead_writer: EventWriter<EntityEvent<EntityDead, Enemy>>,
     mut commands: Commands,
 ) {
     ev_reader.read().for_each(
@@ -191,14 +191,9 @@ fn handle_projectile_hits(
                 .get(*projectile)
                 .expect("Failed to find projectile");
 
-            let mut enemy_health = q_enemies.get_mut(*target).expect("Failed to find enemy");
-            // hit_writer.send(EntityEvent::new(*target));
-
-            enemy_health.cur_hp -= projectile_damage.0;
-
-            if enemy_health.cur_hp <= 0. {
-                dead_writer.send(EntityEvent::new(*target));
-            }
+            commands
+                .entity(*target)
+                .add(TakeDamage::<Enemy>::new(projectile_damage.0));
             commands.entity(*projectile).add(RemoveEntity);
         },
     );
@@ -206,30 +201,25 @@ fn handle_projectile_hits(
 
 fn enemy_on_dead_system(
     q_enemies: Query<&Transform, With<Enemy>>,
-    mut dead_reader: EventReader<EntityEvent<EntityDead, Enemy>>,
+    mut dead_reader: EventReader<EntityEvent<Died, Enemy>>,
     mut commands: Commands,
 ) {
     dead_reader
         .read()
-        .for_each(|EntityEvent::<EntityDead, Enemy> { entity, .. }| {
+        .for_each(|EntityEvent::<Died, Enemy> { entity, .. }| {
             let enemy_translation = q_enemies
                 .get(*entity)
                 .expect("Entity not found")
                 .translation;
 
-            commands.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::splat(5.)),
-                        color: Color::WHITE,
-                        ..Default::default()
-                    },
-                    transform: Transform::from_translation(enemy_translation),
-                    ..Default::default()
-                },
-                XpCrumbBundle::new(5.),
-            ));
-            commands.entity(*entity).despawn_recursive();
+            match rand::thread_rng().gen_range(0..100) {
+                0..=90 => commands.add(SpawnCrumb::<XpCrumb>::new(enemy_translation.truncate())),
+                _ => commands.add(SpawnCrumb::<HealingCrumb>::new(
+                    enemy_translation.truncate(),
+                )),
+            };
+
+            commands.entity(*entity).add(RemoveEntity);
         });
 }
 
