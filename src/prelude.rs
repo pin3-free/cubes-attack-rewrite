@@ -12,7 +12,7 @@ pub use crate::enemy::{EnemyPlugin, EnemyTouchedPlayerEvent};
 
 pub use crate::bullet::{BulletPlugin, GameLayer, Projectile, ProjectileHitEvent};
 
-pub use crate::hurtbox::{DamageTaken, Dead, Health, Hurt, HurtboxBundle, HurtboxPlugin};
+pub use crate::hurtbox::{Health, HurtboxBundle};
 
 pub use crate::xp_crumbs::{XpCrumbBundle, XpCrumbPlugin};
 

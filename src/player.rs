@@ -1,7 +1,7 @@
 use crate::blink::GoInvulnerable;
 use crate::enemy::Invulnerable;
 use crate::prelude::*;
-use bevy::ecs::system::Command;
+use bevy::ecs::system::{Command, EntityCommand, SystemState};
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
 
@@ -79,15 +79,57 @@ impl Command for SpawnPlayer {
     }
 }
 
+pub struct GetPushed {
+    direction: Vec2,
+    velocity: f32,
+}
+
+impl GetPushed {
+    fn new(direction: Vec2, velocity: f32) -> Self {
+        Self {
+            direction,
+            velocity,
+        }
+    }
+}
+
+impl EntityCommand for GetPushed {
+    fn apply(self, id: Entity, world: &mut World) {
+        let time_delta = world
+            .get_resource::<Time>()
+            .expect("DIO HAS ACTIVATED THE WORLD (No time found)")
+            .delta_seconds();
+
+        let mut system_state = SystemState::<Query<&mut LinearVelocity>>::new(world);
+        let mut linear_velocity_query = system_state.get_mut(world);
+        let mut linear_velocity = linear_velocity_query
+            .get_mut(id)
+            .expect("Entity has no velocity");
+
+        let normalized_direction = self.direction.normalize();
+        linear_velocity.x += time_delta * self.velocity * normalized_direction.x;
+        linear_velocity.y += time_delta * self.velocity * normalized_direction.y;
+    }
+}
+
 fn handle_enemy_collisions(
     mut ev_reader: EventReader<EnemyTouchedPlayerEvent>,
     mut damaged_writer: EventWriter<EntityEvent<EntityDamaged, Player>>,
-    q_player: Query<Entity, (With<Player>, Without<Enemy>)>,
+    mut commands: Commands,
+    q_player: Query<(Entity, &Transform), (With<Player>, Without<Enemy>)>,
+    q_enemies: Query<&Transform, With<Enemy>>,
 ) {
-    if let Ok(player_entity) = q_player.get_single() {
-        dbg!("Collision with enemy!");
-        ev_reader.read().for_each(|_| {
+    if let Ok((player_entity, player_tr)) = q_player.get_single() {
+        ev_reader.read().for_each(|ev| {
             damaged_writer.send(EntityEvent::new(player_entity));
+
+            let enemy_tr = q_enemies
+                .get(ev.enemy)
+                .expect("Enemy was deleted before collision could be handled");
+            let push_direction = (player_tr.translation - enemy_tr.translation).truncate();
+            commands
+                .entity(player_entity)
+                .add(GetPushed::new(push_direction, 10000.));
         });
     }
 }
@@ -99,15 +141,19 @@ fn on_player_dead(mut ev_reader: EventReader<EntityEvent<EntityDead, Player>>) {
 fn on_player_hit(
     mut ev_reader: EventReader<EntityEvent<EntityDamaged, Player>>,
     mut dead_writer: EventWriter<EntityEvent<EntityDead, Player>>,
-    mut q_health: Query<&mut Health, With<Player>>,
+    mut q_health: Query<(&mut Health, Option<&Invulnerable>), With<Player>>,
     mut commands: Commands,
 ) {
-    dbg!("Ouch");
-    ev_reader.read().for_each(|ev| {
-        let mut player_hp = q_health.get_mut(ev.entity).expect("Player had no health");
+    let mut applied_dmg = false;
+    ev_reader.read().take(1).for_each(|ev| {
+        let (mut player_hp, player_invulnerable) =
+            q_health.get_mut(ev.entity).expect("Player had no health");
 
-        player_hp.cur_hp -= 5.;
-        commands.entity(ev.entity).add(GoInvulnerable::new(2., 5));
+        if player_invulnerable.is_none() {
+            player_hp.cur_hp -= 5.;
+            commands.entity(ev.entity).add(GoInvulnerable::new(2., 5));
+            applied_dmg = true;
+        }
         if player_hp.cur_hp <= 0. {
             dead_writer.send(EntityEvent::new(ev.entity));
         }

@@ -36,7 +36,6 @@ fn main() {
             CharacterControllerPlugin,
             BulletPlugin,
             EnemyPlugin,
-            HurtboxPlugin,
             XpCrumbPlugin,
             PlayerPlugin,
             BlinkPlugin,
