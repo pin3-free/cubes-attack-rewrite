@@ -40,6 +40,7 @@ fn main() {
             XpCrumbPlugin,
             PlayerPlugin,
             BlinkPlugin,
+            HealthbarPlugin,
         ))
         .add_systems(Startup, (setup, spawn_player_hotbar).chain())
         .insert_resource(Gravity(Vec2::ZERO))

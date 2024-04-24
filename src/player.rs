@@ -53,7 +53,7 @@ impl Command for SpawnPlayer {
             .spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::RED,
+                        color: Color::GREEN,
                         custom_size: Some(Vec2::splat(self.size)),
                         ..Default::default()
                     },
@@ -81,20 +81,14 @@ impl Command for SpawnPlayer {
 
 fn handle_enemy_collisions(
     mut ev_reader: EventReader<EnemyTouchedPlayerEvent>,
-    mut dead_writer: EventWriter<EntityEvent<EntityDead, Player>>,
     mut damaged_writer: EventWriter<EntityEvent<EntityDamaged, Player>>,
-    mut q_player: Query<(Entity, &mut Health), (With<Player>, Without<Enemy>)>,
+    q_player: Query<Entity, (With<Player>, Without<Enemy>)>,
 ) {
-    if let Ok((player_entity, mut health)) = q_player.get_single_mut() {
+    if let Ok(player_entity) = q_player.get_single() {
+        dbg!("Collision with enemy!");
         ev_reader.read().for_each(|_| {
-            health.cur_hp -= 5.;
             damaged_writer.send(EntityEvent::new(player_entity));
-
-            if health.cur_hp <= 0. {
-                dbg!();
-                dead_writer.send(EntityEvent::new(player_entity));
-            }
-        })
+        });
     }
 }
 
@@ -104,10 +98,18 @@ fn on_player_dead(mut ev_reader: EventReader<EntityEvent<EntityDead, Player>>) {
 
 fn on_player_hit(
     mut ev_reader: EventReader<EntityEvent<EntityDamaged, Player>>,
+    mut dead_writer: EventWriter<EntityEvent<EntityDead, Player>>,
+    mut q_health: Query<&mut Health, With<Player>>,
     mut commands: Commands,
 ) {
     dbg!("Ouch");
     ev_reader.read().for_each(|ev| {
+        let mut player_hp = q_health.get_mut(ev.entity).expect("Player had no health");
+
+        player_hp.cur_hp -= 5.;
         commands.entity(ev.entity).add(GoInvulnerable::new(2., 5));
+        if player_hp.cur_hp <= 0. {
+            dead_writer.send(EntityEvent::new(ev.entity));
+        }
     })
 }

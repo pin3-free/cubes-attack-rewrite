@@ -23,10 +23,16 @@ impl Plugin for HurtboxPlugin {
 #[derive(Component)]
 pub struct Hurtbox;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Health {
     pub cur_hp: f32,
     pub max_hp: f32,
+}
+
+impl Health {
+    pub fn remaining_fraction(&self) -> f32 {
+        (self.cur_hp / self.max_hp).max(0.)
+    }
 }
 
 #[derive(Component)]

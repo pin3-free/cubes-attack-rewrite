@@ -18,6 +18,8 @@ pub use crate::xp_crumbs::{XpCrumbBundle, XpCrumbPlugin};
 
 pub use crate::player::{Player, PlayerPlugin, SpawnPlayer};
 
+pub use crate::healthbar::HealthbarPlugin;
+
 #[derive(Component)]
 pub struct MainCamera;
 
