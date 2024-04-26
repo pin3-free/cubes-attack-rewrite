@@ -82,26 +82,26 @@ impl BlinkBundle {
 
 pub(crate) fn blink_system(
     time: Res<Time>,
-    mut q_blinking: Query<(Entity, &mut BlinkTimer, &mut BlinkCount, &mut Visibility)>,
+    mut q_blinking: Query<(Entity, &mut BlinkTimer, &mut BlinkCount, &mut Sprite)>,
     mut commands: Commands,
 ) {
-    q_blinking.iter_mut().for_each(
-        |(entity, mut blink_timer, mut blink_count, mut visibility)| {
+    q_blinking
+        .iter_mut()
+        .for_each(|(entity, mut blink_timer, mut blink_count, mut sprite)| {
             if blink_timer.0.tick(time.delta()).finished() {
-                let new_visibility = match *visibility {
-                    Visibility::Inherited => Visibility::Hidden,
-                    Visibility::Hidden => Visibility::Visible,
-                    Visibility::Visible => Visibility::Hidden,
+                let new_opacity = match sprite.color.a() {
+                    0. => 1.,
+                    1. => 0.,
+                    val => todo!("Blinking for opaque entities not implemented"),
                 };
-                *visibility = new_visibility;
+                sprite.color.set_a(new_opacity);
                 blink_count.0 -= 1;
                 blink_timer.0.reset();
 
                 if blink_count.0 == 0 {
                     commands.entity(entity).add(StopInvulnerability);
-                    *visibility = Visibility::Visible;
+                    sprite.color.set_a(1.);
                 }
             }
-        },
-    );
+        });
 }

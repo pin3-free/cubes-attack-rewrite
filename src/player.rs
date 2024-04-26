@@ -33,6 +33,10 @@ impl Plugin for PlayerPlugin {
             )
             .add_systems(
                 Update,
+                (on_player_heal,).run_if(on_event::<EntityEvent<Healed, Player>>()),
+            )
+            .add_systems(
+                Update,
                 (on_player_hit,).run_if(on_event::<EntityEvent<TookDamage, Player>>()),
             );
     }

@@ -9,7 +9,7 @@ pub struct HealthbarPlugin;
 
 impl Plugin for HealthbarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (update_healthbars, move_healthbars));
+        app.add_systems(Update, (update_healthbars));
     }
 }
 
@@ -74,15 +74,10 @@ impl Command for SpawnHealthbar {
                 MaterialMesh2dBundle {
                     mesh: bg_mesh.into(),
                     material: bg_material,
-                    transform: Transform::from_xyz(
-                        entity_tr.translation.x,
-                        entity_tr.translation.y - 28.,
-                        1.,
-                    ),
+                    transform: Transform::from_xyz(0., -28., 1.),
                     ..Default::default()
                 },
                 HealthbarBackground,
-                BarOffset(Vec2::new(0., -28.)),
             ))
             .with_children(|children| {
                 children.spawn((
@@ -100,6 +95,8 @@ impl Command for SpawnHealthbar {
                 ));
             })
             .id();
+
+        world.entity_mut(self.tracked_entity).add_child(bar);
 
         world
             .entity_mut(self.tracked_entity)
@@ -130,19 +127,6 @@ impl Command for DeleteHealthbar {
 
         world.entity_mut(linked_bar_entity).despawn_recursive();
     }
-}
-
-fn move_healthbars(
-    q_with_bars: Query<(&Transform, &LinkedHealthbarId)>,
-    mut q_bars: Query<
-        (&mut Transform, &BarOffset),
-        (With<HealthbarBackground>, Without<LinkedHealthbarId>),
-    >,
-) {
-    q_with_bars.iter().for_each(|(entity_tr, bar_id)| {
-        let (mut bar_tr, bar_offset) = q_bars.get_mut(bar_id.0).expect("Bar not found");
-        bar_tr.translation = entity_tr.translation + bar_offset.0.extend(0.);
-    })
 }
 
 fn update_healthbars(

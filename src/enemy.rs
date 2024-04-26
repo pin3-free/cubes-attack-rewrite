@@ -111,11 +111,22 @@ impl Command for SpawnEnemy {
             .get_resource::<EnemyHealthScaling>()
             .expect("Failed to obtain enemy health scaling handle");
 
-        world.spawn((
-            EnemyBundle::new(Collider::circle(16.), 15. * scaling.0),
-            EnemyBundle::sprite_bundle(Transform::from_xyz(self.position.x, self.position.y, 0.)),
-            LockedAxes::ROTATION_LOCKED,
-        ));
+        let enemy = world
+            .spawn((
+                EnemyBundle::new(Collider::circle(16.), 15. * scaling.0),
+                EnemyBundle::sprite_bundle(Transform::from_xyz(
+                    self.position.x,
+                    self.position.y,
+                    0.,
+                )),
+                LockedAxes::ROTATION_LOCKED,
+            ))
+            .id();
+
+        let mut system_state = SystemState::<Commands>::new(world);
+        let mut commands = system_state.get_mut(world);
+        commands.add(SpawnHealthbar::new(enemy));
+        system_state.apply(world);
     }
 }
 

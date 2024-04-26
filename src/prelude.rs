@@ -31,7 +31,7 @@ pub struct RemoveEntity;
 impl EntityCommand for RemoveEntity {
     fn apply(self, id: Entity, world: &mut World) {
         // dbg!("Removed", id);
-        world.despawn(id);
+        world.entity_mut(id).despawn_recursive();
     }
 }
 
