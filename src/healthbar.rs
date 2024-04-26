@@ -9,7 +9,7 @@ pub struct HealthbarPlugin;
 
 impl Plugin for HealthbarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_healthbars);
+        app.add_systems(Update, (update_healthbars, move_healthbars));
     }
 }
 
@@ -23,10 +23,19 @@ pub struct HealthbarBackground;
 #[derive(Component)]
 pub struct HealthbarForeground;
 
+#[derive(Component)]
+pub struct BarOffset(Vec2);
+
 impl SpawnHealthbar {
     pub fn new(tracked_entity: Entity) -> Self {
         Self { tracked_entity }
     }
+}
+
+#[derive(Component)]
+pub enum HealthbarType {
+    Static,
+    Moving,
 }
 
 impl Command for SpawnHealthbar {
@@ -73,6 +82,7 @@ impl Command for SpawnHealthbar {
                     ..Default::default()
                 },
                 HealthbarBackground,
+                BarOffset(Vec2::new(0., -28.)),
             ))
             .with_children(|children| {
                 children.spawn((
@@ -122,7 +132,23 @@ impl Command for DeleteHealthbar {
     }
 }
 
-fn update_healthbars(q_with_bars: Query<Entity, With<LinkedHealthbarId>>, mut commands: Commands) {
+fn move_healthbars(
+    q_with_bars: Query<(&Transform, &LinkedHealthbarId)>,
+    mut q_bars: Query<
+        (&mut Transform, &BarOffset),
+        (With<HealthbarBackground>, Without<LinkedHealthbarId>),
+    >,
+) {
+    q_with_bars.iter().for_each(|(entity_tr, bar_id)| {
+        let (mut bar_tr, bar_offset) = q_bars.get_mut(bar_id.0).expect("Bar not found");
+        bar_tr.translation = entity_tr.translation + bar_offset.0.extend(0.);
+    })
+}
+
+fn update_healthbars(
+    q_with_bars: Query<Entity, (With<LinkedHealthbarId>, Changed<Health>)>,
+    mut commands: Commands,
+) {
     q_with_bars.iter().for_each(|entity| {
         commands.add(DeleteHealthbar::new(entity));
         commands.add(SpawnHealthbar::new(entity));
